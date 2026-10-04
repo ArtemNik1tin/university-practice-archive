@@ -1,0 +1,143 @@
+% Данный файл распространяетсяя под лицензией CC BY 4.0. Текст лицензии размещён на https://creativecommons.org/licenses/by/4.0/
+% (c) Кафедра системного программирования, 2025
+
+\documentclass[a4paper]{article}
+
+\usepackage[a4paper, top=8mm, bottom=8mm, left=8mm, right=8mm]{geometry}
+
+\usepackage{polyglossia}
+\setdefaultlanguage[babelshorthands=true]{russian}
+\setotherlanguage{english}
+
+\usepackage{fontspec}
+\setmainfont{FreeSerif}
+\newfontfamily{\russianfonttt}[Scale=0.7]{DejaVuSansMono}
+
+\usepackage[tiny, compact]{titlesec}
+
+\usepackage{titling}
+\setlength{\droptitle}{-1cm}
+\pretitle{\begin{center}\begin{bfseries}\Large}
+\posttitle{\par\end{bfseries}\end{center}}
+\preauthor{\begin{center}\normalsize}
+\postauthor{\par\end{center}\vspace{-1.8cm}}
+
+\usepackage{hyperref}
+\usepackage{bookmark}
+\usepackage{csquotes}
+% Сюда можно дописывать нужные вам пакеты.
+
+\title{Улучшение методов дедупликации SBC}
+
+\author{Никитин Артём Денисович}
+
+% Дата много места занимает, её лучше не указывать.
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{flushright}
+    Группа: \emph{24.Б44-мм}
+
+    Кафедра: \emph Системное программирование
+
+    % Степень/звание и должность научника мы лучше вас знаем, их можно не указывать.
+    Научный руководитель: \emph{Гориховский Вячеслав Игоревич}
+
+    % А вот про консультанта укажите официальное место работы, с "ООО" или чем-то таким, и должностью желательно по трудовой, не просто "techlead". Выясните у консультанта.
+    Консультант: \emph{Дмитриевцев Алексей Сергеевич}
+    
+    Номер семестра практики: \emph{3}
+\end{flushright} 
+
+
+\section{Постановка задачи}
+
+% Буквально парой предложений ввести в контекст, обязательно сформулировать цель работы. Если работа делается где-то глубоко внутри проекта, на введение можно потратить больше места, чтобы подвести читателя от сути проекта в целом к тому, что конкретно вам надо было сделать. Только без воды, никакого "в современном мире"!
+Работа в интересах компании YADRO в рамках проекта ChunkFS. \textbf{Целью работы является улучшить методы дедупликации SBC, а также создать механизмы их анализа в файловой системе ChunkFS}
+
+\textbf{Дедупликация данных} — это алгоритм сжатия, нацеленный на выявление
+идентичных блоков данных и их удаление.
+
+\textbf{Similarity Based Chunking (SBC)} — метод дедупликации, при
+котором данные сначала разбиваются на блоки (чанки), а затем с помощью
+хеширования определяется степень их схожести. Похожие чанки объединяются
+в кластеры. Сжатие обеспечивается алгоритмами дельта-кодирования, такими
+как Zdelta, Xdelta, Gdelta, Ddelta и Edelta. Эти кодировщики итерируются по
+кластеру, оставляя в нём только один родительский чанк и инструкции для
+восстановления остальных похожих чанков.
+
+% Это пояснение актуальности. Тут обязательно надо обрисовать полезность вашей работы для конечного пользователя (и заодно как-то описать, кто такой ваш конечный пользователь --- может, это соседняя команда). Даже если вы делаете работу "глубоко внутри", выясните у консультанта, чем это людям поможет. И опишите, кто выступал в роли "заказчика" вашей работы, т.е. кто и зачем предложил задачу. Можно без конкретных имён, но названия организаций вполне желательны.
+Результаты работы необходимы для качественного бенчмаркинга SBC-алгоритма. Исследования проводятся в целях увеличения коэффициента дедупликации.
+
+\section{Описание предлагаемого решения}
+
+% Раздел пишется в свободной форме, с минимумом технических подробностей (можно приводить ссылки на более подробные документы).
+
+Xdelta\footnote{Dimitre Trendafilov, Nasir Memon, and Torsten Suel. Zdelta: An efficient delta compression tool. Technical report,
+Department of Computer and Information Science at Polytechnic University, 2002.} — алгоритм дельта-кодирования использующий скользящее окно для вычисления хеша Adler32.
+
+Gdelta\footnote{H. Tan, Z. Zhang, X. Zou, Q. Liao, and W. Xia, “Exploring the potential of fast delta encoding: Marching to a higher compression ratio” in Proc. IEEE Conf., 2020.} — использует для хеширования не Adler32, а gear hash. (Было реализовано ранее)
+
+Ddelta\footnote{Wen Xia, Hong Jiang, Dan Feng, Lei Tian, Min Fu, and Yukun Zhou. Ddelta: A deduplication-inspired fast delta compression approach. Performance Evaluation,
+79:258–272, 2014.} — алгоритм использующий content define chunking (CDC) для разбиения чанка и вычисления хеша.
+
+Edelta\footnote{Wen Xia, Chunguang Li, Hong Jiang, Dan Feng, Yu Hua, Leihua Qin, and Yucheng Zhang. Edelta: A word-enlarging based fast delta compression approach. In the
+7th USENIX conference on Hot Topics in Storage and File Systems (HotStorage’15), pages 1–5, Santa Clara, CA, 2015. USENIX Association.} — оптимизация ddelta, использующая эвристику: если данные в целевом чанке и родительском совпали, то данные находящиеся поблизости тоже совпадут.
+
+Zdelta\footnote{Haoliang Tan , Zhiyuan Zhang , Xiangyu Zou , Qing Liao, Wen Xia. Exploring the Potential of Fast Delta Encoding: Marching to a Higher Compression Ratio. — 2021.} — алгоритм использующий три указателя для умного вычисления смещения copy инструкций.
+
+Алгоритмы интегрированы в ChunkFS — файловую систему для бенчмаркинга алгоритмов
+дедупликации.
+
+Помимо этих алгоритмов мной была реализована функциональность позволяющая собирать данные о этапе кластеризации SBC-алгоритма.
+
+Ранее существующие решения не интегрированы в файловые системы бенчмаркинга методов дедупликации с открытым и исходным кодом.
+
+% Вот это важно, опишите кратко, что использовали
+Реализация решения осуществлялась с использованием языка Rust и файловой системы ChunkFS.
+
+\section{Эксперименты}
+
+% Название секции можно поменять на более подходящее вашей работе
+
+% Название этой секции --- либо \enquote{Апробация}, либо \enquote{эксперименты}  (если содержательно есть и то и то, можно две отдельные секции сделать). Тут опишите, как проводилась проверка того, что получилось что-то адекватное. Если есть отзывы пользователей, отлично (особенно если они в структурированном виде, типа анкеты SUS). Если есть отзывы команды, консультанта и т.п., хорошо. Если есть только тесты. то хотя бы их тут опишите.
+
+% Если работа подразумевала замеры чего-то (например, производительности), приведите тут итоговые результаты и выводы, и дайте ссылку на таблицы с данными. Не забывайте про матстат (приводите матожидание и среднеквадратичное отклонение, не просто результат замера).
+\textbf{Исследовательский вопрос:} как коэффициент дедупликации для каждого кодировщика зависит от CDC?
+
+\textbf{Метрики:} \url{https://docs.google.com/spreadsheets/d/152O0nph2a-DgmPHKsB0gL2AIYR7s2dLHWC19rbjdrLo/edit?hl=ru&gid=0#gid=0}
+
+\textbf{Вывод:} Наилучший коэффициент дедупликации для всех кодировщиков был получен на Ultra CDC (прирост около 10 процентов). Ранее при анализе других кодировщиков были получены схожие результаты\footnote{Щербаков М.А. Гориховский В.И. Повышение качества 
+дедупликации с помощью Similarty Based Chunking 2025. –– \url{https://www.elibrary.ru/item.asp?id=81439119&pff=1}}. Можно сделать предположение что Ultra это самый подходящий CDC для работы с SBC. Для всех CDC Xdelta даёт наибольший коэффициент дедупликации.
+
+\section{Заключение}
+
+В ходе выполнения работы получены следующие \textbf{результаты}:
+
+% ниже списком перечисляете то, что выносится как результат практики.
+
+\begin{itemize}
+    \item Реализованы алгоритмы xdelta, ddelta, zdelta и
+edelta для SBC scrubber
+    \item Добавлена возможность собирать статистику
+на этапе кластеризации SBC алгоритма
+    \item Установлена зависимость коэффициента дедупликации от CDC для различных дельта-кодировщиков
+\end{itemize}
+
+Ссылки на пуллреквесты: 
+\begin{itemize}
+    \item Clustering measurements in ChunkFS: \url{https://github.com/Piletskii-Oleg/chunkfs/pull/9}
+    \item Clustering measurements in SBC scrubber: \url{https://github.com/maxscherbakov/sbc_algorithm/pull/13}
+    \item Xdelta: \url{https://github.com/maxscherbakov/sbc_algorithm/pull/9}
+    \item Ddelta/Edelta: \url{https://github.com/maxscherbakov/sbc_algorithm/pull/12}
+    \item Zdelta: \url{https://github.com/maxscherbakov/sbc_algorithm/pull/10}
+\end{itemize}
+
+Техническая документация: \url{https://github.com/ArtemNikit1n/sbc_algorithm/blob/main/src/encoder/EncoderDocument.md}
+
+В будущем планируется исследовать взаимосвязь коэффициента дедупликации и формы кластера на различных датасетах.
+
+\end{document}
