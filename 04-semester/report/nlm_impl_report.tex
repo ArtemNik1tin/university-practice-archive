@@ -1,0 +1,106 @@
+% Данный файл распространяется под лицензией CC BY 4.0. Текст лицензии размещён на https://creativecommons.org/licenses/by/4.0/
+% (c) Кафедра системного программирования, 2025
+
+\documentclass[a4paper]{article}
+
+\usepackage[a4paper, top=8mm, bottom=8mm, left=8mm, right=8mm]{geometry}
+
+\usepackage{polyglossia}
+\setdefaultlanguage[babelshorthands=true]{russian}
+\setotherlanguage{english}
+
+\usepackage{fontspec}
+\setmainfont{FreeSerif}
+\newfontfamily{\russianfonttt}[Scale=0.7]{DejaVuSansMono}
+
+\usepackage[tiny, compact]{titlesec}
+
+\usepackage{titling}
+\setlength{\droptitle}{-1cm}
+\pretitle{\begin{center}\begin{bfseries}\Large}
+\posttitle{\par\end{bfseries}\end{center}}
+\preauthor{\begin{center}\normalsize}
+\postauthor{\par\end{center}\vspace{-1.8cm}}
+
+\usepackage{hyperref}
+\usepackage{bookmark}
+\usepackage{csquotes}
+
+\title{Разработка Network Lock Manager для NFS Mamont}
+
+\author{Никитин Артём Денисович}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{flushright}
+    Группа: \emph{24.Б44-мм}
+
+    Кафедра: \emph{Системного программирования}
+
+    Научный руководитель: \emph{Гориховский Вячеслав Игоревич}
+
+    Консультант: \emph{Яровой Вадим Дмитриевич, Инженер по разработке ПО, YADRO}
+    
+    Номер семестра практики: \emph{4}
+\end{flushright} 
+
+\section{Постановка задачи}
+
+Работа выполняется в интересах компании YADRO (направление TATLIN.BACKUP) в рамках проекта \textbf{NFS Mamont}.
+
+\textbf{Целью работы является} проектирование и реализация подсистемы управления сетевыми блокировками (Network Lock Manager, NLM версии 4) для разрабатываемого NFS-сервера.
+
+NFS Mamont создается на языке Rust как современная, безопасная и высокопроизводительная альтернатива серверу NFS-Ganesha, функционирующая в пространстве пользователя (user space).
+
+Результаты работы необходимы для поддержки механизмов POSIX-совместимых блокировок. Для конечных пользователей продукта это полезно тем, что подсистема NLMv4 обеспечивает согласованную конкурентную работу сетевых клиентов с общими файловыми объектами по протоколу NFSv3.
+
+\section{Описание предлагаемого решения}
+
+\begin{itemize}
+    \item \textbf{Асинхронный конвейер обработки (Actor Model):} Для обеспечения non-blocking I/O применена модель акторов.
+    
+    Путь данных реализован следующим образом:
+    \begin{enumerate}
+        \item При установке TCP-соединения сокет разделяется на независимые потоки чтения и записи, для которых в пуле \texttt{tokio} создаются изолированные легковесные задачи \texttt{ReadTask} и \texttt{WriteTask}.
+        \item \texttt{ReadTask} считывает байты из сети и передает их модулю XDR-парсера. Распознав пакет NLM, парсер формирует команду \texttt{NlmCommand}, прикрепляет к ней канал обратной связи и отправляет через MPSC-очередь в задачу \texttt{NlmTask}.
+        \item \texttt{NlmTask}, являясь синглтоном на уровне сервера, последовательно обрабатывает очередь команд, применяет бизнес-логику блокировок и отправляет ответ в прикрепленный канал.
+        \item \texttt{WriteTask} асинхронно ожидает результатов из канала. Получив ответ, он передает его компоненту \texttt{Serializer}, который упаковывает типизированные структуры обратно в сырые XDR-байты и отправляет их клиенту.
+    \end{enumerate}
+
+    \item \textbf{In-memory реестр (\texttt{LockRegistry}) с механизмом Auto-grant:} 
+    Активные (\texttt{ActiveLock}) и ожидающие (\texttt{PendingLock}) запросы индексируются по File Handle. При конфликтах блокирующие запросы ставятся в очередь. Вызов \texttt{UNLOCK} атомарно освобождает ресурс и автоматически выдает права (auto-grant) клиентам из очереди ожидания. Это полностью исключает необходимость повторных запросов и минимизирует сетевой трафик.
+\end{itemize}
+
+\section{Апробация}
+Тестовое покрытие сфокусировано на следующих сценариях:
+\begin{itemize}
+    \item \textbf{NLMv4 service:} Протестирован механизм отложенных блокировок. Удаление блокировки целевого владельца и диапазона, корректная очистка пустых списков в \texttt{HashMap}. Проверено правильное выявление конфликтов для разделяемых и эксклюзивных блокировок.
+    \item \textbf{Парсер и сериалайзер (XDR):} Использованы вспомогательные сериализаторы для симуляции бинарных потоков. Проверена устойчивость к усеченным RPC-пакетам и превышению лимитов протокола.
+\end{itemize}
+
+\section{Заключение}
+
+В ходе выполнения работы получены следующие результаты:
+\begin{itemize}
+    \item Спроектированы абстракции и структуры данных подсистемы Network Lock Manager (NLMv4) в соответствии с RFC 1813\footnote{\url{https://www.ietf.org/rfc/rfc1813.txt}}\footnote{\url{https://pubs.opengroup.org/onlinepubs/9629799/toc.htm}}.
+    \item Реализован слой XDR-сериализации и десериализации процедур управления блокировками.
+    \item Разработана \texttt{in-memory} стейт-машина для разрешения конфликтов и управления отложенными запросами.
+    \item Интегрирован асинхронный конвейер обмена сообщениями между задачами сетевого ввода-вывода и глобальным обработчиком NLM на базе акторной модели.
+\end{itemize}
+
+Код покрыт модульными тестами, прошел процесс ревью и успешно внедрен в основную ветку (\texttt{main}) репозитория NFS Mamont.
+
+Ссылки на основные пуллреквесты, иллюстрирующие выполнение работы:
+\begin{itemize}
+    \item \url{https://github.com/RMamonts/nfs-mamont/pull/209}
+    \item \url{https://github.com/RMamonts/nfs-mamont/pull/225}
+    \item \url{https://github.com/RMamonts/nfs-mamont/pull/228}
+    \item \url{https://github.com/RMamonts/nfs-mamont/pull/254}
+    \item \url{https://github.com/RMamonts/nfs-mamont/pull/266}
+\end{itemize}
+
+\end{document}
