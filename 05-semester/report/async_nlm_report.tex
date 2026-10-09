@@ -1,0 +1,98 @@
+% Данный файл распространяется под лицензией CC BY 4.0. Текст лицензии размещён на https://creativecommons.org/licenses/by/4.0/
+% (c) Кафедра системного программирования, 2025
+
+\documentclass[a4paper]{article}
+
+\usepackage[a4paper, top=8mm, bottom=8mm, left=8mm, right=8mm]{geometry}
+
+\usepackage{polyglossia}
+\setdefaultlanguage[babelshorthands=true]{russian}
+\setotherlanguage{english}
+
+\usepackage{fontspec}
+\setmainfont{FreeSerif}
+\newfontfamily{\russianfonttt}[Scale=0.7]{DejaVuSansMono}
+
+\usepackage[tiny, compact]{titlesec}
+
+\usepackage{titling}
+\setlength{\droptitle}{-1cm}
+\pretitle{\begin{center}\begin{bfseries}\Large}
+\posttitle{\par\end{bfseries}\end{center}}
+\preauthor{\begin{center}\normalsize}
+\postauthor{\par\end{center}\vspace{-1.8cm}}
+
+\usepackage{hyperref}
+\usepackage{bookmark}
+\usepackage{csquotes}
+
+\title{Разработка асинхронных процедур Network Lock Manager для NFS Mamont}
+
+\author{Никитин Артём Денисович}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{flushright}
+    Группа: \emph{24.Б44-мм}
+
+    Кафедра: \emph{Системного программирования}
+
+    Научный руководитель: \emph{Гориховский Вячеслав Игоревич}
+
+    Консультант: \emph{Яровой Вадим Дмитриевич, Инженер по разработке ПО, YADRO}
+    
+    Номер семестра практики: \emph{5}
+\end{flushright} 
+
+\section{Постановка задачи}
+
+Работа выполняется в интересах компании YADRO (TATLIN.BACKUP) в рамках проекта \textbf{NFS Mamont}.
+
+\textbf{Целью работы является} реализация асинхронных процедур Network Lock Manager (NLMv4) для разрабатываемого NFS-сервера.
+
+NFS Mamont создается на языке Rust как современная, безопасная и высокопроизводительная альтернатива NFS-Ganesha, функционирующая в пространстве пользователя (user space).
+
+\section{Задачи}
+
+\begin{itemize}
+    \item Решить проблему маршрутизации callback запросов без существенных изменений архитектуры сервера.
+    \item Рефакторинг реестра блокировок для учёта запросов не получивших подтверждение клиента.
+    \item Добавить в существующую систему обработку следующих процедур:
+    \begin{itemize}
+        \item NLMPROC4\_TEST\_MSG
+        \item NLMPROC4\_LOCK\_MSG
+        \item NLMPROC4\_CANCEL\_MSG
+        \item NLMPROC4\_UNLOCK\_MSG
+        \item NLMPROC4\_GRANTED\_MSG
+        \item NLMPROC4\_TEST\_RES
+        \item NLMPROC4\_LOCK\_RES
+        \item NLMPROC4\_CANCEL\_RES
+        \item NLMPROC4\_UNLOCK\_RES
+        \item NLMPROC4\_GRANTED\_RES
+    \end{itemize}
+\end{itemize}
+
+\section{Описание предлагаемого решения}
+
+\begin{itemize}
+\end{itemize}
+
+\section{Апробация}
+
+\section{Заключение}
+
+В ходе выполнения работы получены следующие результаты:
+\begin{itemize}
+\end{itemize}
+
+
+Ссылки на основные пуллреквесты, иллюстрирующие выполнение работы:
+\begin{itemize}
+\end{itemize}
+
+\end{document}
+
